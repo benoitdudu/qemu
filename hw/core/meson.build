@@ -55,3 +55,26 @@ specific_ss.add(when: 'CONFIG_SOFTMMU', if_true: files(
   'machine-qmp-cmds.c',
   'numa.c',
 ))
+
+
+specific_ss.add(when: 'CONFIG_REMOTE_PORT', if_true: files(
+  'remote-port-proto.c',
+  'remote-port.c',
+#  'remote-port-memory-master.c',
+#  'remote-port-memory-slave.c',
+#  'remote-port-gpio.c',
+#  'remote-port-stream.c',
+#  'remote-port-net.c',
+#  'remote-port-ats.c',
+))
+
+#specific_ss.add(when: 'CONFIG_REMOTE_PORT_PCI', if_true: files(
+#  'remote-port-pci-adaptor.c',
+#  'remote-port-pci-device.c',
+#  'remote-port-pcie-root-port.c',
+#))
+
+specific_ss.add(when: 'CONFIG_SOFTMMU', if_true: files(
+#  'cpu-exec-gpio.c',
+  'remote-port-qdev.c'
+))
