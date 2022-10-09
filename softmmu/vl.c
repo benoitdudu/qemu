@@ -182,6 +182,7 @@ static const char *log_file;
 static bool list_data_dirs;
 static const char *qtest_chrdev;
 static const char *qtest_log;
+const char *machine_path = NULL;
 
 static int has_defaults = 1;
 static int default_serial = 1;

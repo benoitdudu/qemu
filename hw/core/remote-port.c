@@ -6,7 +6,6 @@
  *
  * This code is licensed under the GNU GPL.
  */
-
 #include "qemu/osdep.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/dma.h"
@@ -20,6 +19,7 @@
 #include "qemu/sockets.h"
 #include "qemu/thread.h"
 #include "qemu/log.h"
+#include "qemu/cutils.h"
 #include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "migration/vmstate.h"
@@ -699,6 +699,52 @@ static void rp_reset(DeviceState *dev)
     s->reset_done = true;
 }
 
+#ifndef _WIN32
+/*
+ * Creates a pipe with FD_CLOEXEC set on both file descriptors
+ */
+static
+int qemu_pipe(int pipefd[2])
+{
+    int ret;
+
+#ifdef CONFIG_PIPE2
+    ret = pipe2(pipefd, O_CLOEXEC);
+    if (ret != -1 || errno != ENOSYS) {
+        return ret;
+    }
+#endif
+    ret = pipe(pipefd);
+    if (ret == 0) {
+        qemu_set_cloexec(pipefd[0]);
+        qemu_set_cloexec(pipefd[1]);
+    }
+
+    return ret;
+}
+static
+int qemu_try_set_nonblock(int fd)
+{
+    int f;
+    f = fcntl(fd, F_GETFL);
+    if (f == -1) {
+        return -errno;
+    }
+    if (fcntl(fd, F_SETFL, f | O_NONBLOCK) == -1) {
+        return -errno;
+    }
+    return 0;
+}
+static
+void qemu_set_nonblock(int fd)
+{
+    int f;
+    f = qemu_try_set_nonblock(fd);
+    assert(f == 0);
+}
+
+#endif
+
 static void rp_realize(DeviceState *dev, Error **errp)
 {
     RemotePort *s = REMOTE_PORT(dev);
@@ -753,7 +799,7 @@ static void rp_realize(DeviceState *dev, Error **errp)
     /* Force RP sockets into blocking mode since our RP-thread will deal
      * with the IO and bypassing QEMUs main-loop.
      */
-    qemu_chr_fe_set_blocking(&s->chr, true);
+    //qemu_chr_fe_set_blocking(&s->chr, true);
 
 #ifdef _WIN32
     /* Create a socket connection between two sockets. We auto-bind
@@ -831,9 +877,9 @@ static void rp_realize(DeviceState *dev, Error **errp)
        change.  */
     s->sync.quantum = s->peer.local_cfg.quantum;
 
-    s->sync.ptimer = ptimer_init(sync_timer_hit, s, PTIMER_POLICY_DEFAULT);
+    s->sync.ptimer = ptimer_init(sync_timer_hit, s, PTIMER_POLICY_LEGACY);
     s->sync.ptimer_resp = ptimer_init(syncresp_timer_hit, s,
-                                      PTIMER_POLICY_DEFAULT);
+                                      PTIMER_POLICY_LEGACY);
 
     /* The Sync-quantum is expressed in nano-seconds.  */
     ptimer_transaction_begin(s->sync.ptimer);
@@ -869,7 +915,6 @@ static const VMStateDescription vmstate_rp = {
     .name = TYPE_REMOTE_PORT,
     .version_id = 1,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
     .fields = (VMStateField[]) {
         VMSTATE_END_OF_LIST(),
     }
