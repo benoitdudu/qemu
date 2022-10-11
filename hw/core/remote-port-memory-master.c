@@ -45,11 +45,14 @@
 
 MemTxResult rp_mm_access_with_def_attr(RemotePort *rp, uint32_t rp_dev,
                                        struct rp_peer_state *peer,
-                                       MemoryTransaction *tr,
                                        bool relative, uint64_t offset,
+                                       hwaddr addr,
+                                       uint64_t *ioData,
+                                       unsigned size,
+                                       MemTxAttrs attrs,
+                                       bool isWrite,
                                        uint32_t def_attr)
 {
-    uint64_t addr = tr->addr;
     RemotePortRespSlot *rsp_slot;
     RemotePortDynPkt *rsp;
     struct  {
@@ -63,33 +66,33 @@ MemTxResult rp_mm_access_with_def_attr(RemotePort *rp, uint32_t rp_dev,
     MemTxResult ret;
 
     DB_PRINT_L(0, "addr: %" HWADDR_PRIx " data: %" PRIx64 "\n",
-               addr, tr->data.u64);
+               addr, *ioData);
 
-    if (tr->rw) {
+    if (isWrite) {
         /* Data up to 8 bytes is passed as values.  */
-        if (tr->size <= 8) {
-            for (i = 0; i < tr->size; i++) {
-                data[i] = tr->data.u64 >> (i * 8);
+        if (size <= 8) {
+            for (i = 0; i < size; i++) {
+                data[i] = *ioData >> (i * 8);
             }
         } else {
-            memcpy(data, tr->data.p8, tr->size);
+            memcpy(data, ioData, size);
         }
     }
 
     addr += relative ? 0 : offset;
 
-    in.cmd = tr->rw ? RP_CMD_write : RP_CMD_read;
+    in.cmd = isWrite ? RP_CMD_write : RP_CMD_read;
     in.id = rp_new_id(rp);
     in.dev = rp_dev;
     in.clk = rp_normalized_vmclk(rp);
-    in.master_id = tr->attr.requester_id;
+    in.master_id = attrs.requester_id;
     in.addr = addr;
     in.attr = def_attr;
-    in.attr |= tr->attr.secure ? RP_BUS_ATTR_SECURE : 0;
-    in.size = tr->size;
-    in.stream_width = tr->size;
+    in.attr |= attrs.secure ? RP_BUS_ATTR_SECURE : 0;
+    in.size = size;
+    in.stream_width = size;
     len = rp_encode_busaccess(peer, &pay.pkt, &in);
-    len += tr->rw ? tr->size : 0;
+    len += isWrite ? size : 0;
 
     trace_remote_port_memory_master_tx_busaccess(rp_cmd_to_string(in.cmd),
         in.id, in.flags, in.dev, in.addr, in.size, in.attr);
@@ -115,15 +118,15 @@ MemTxResult rp_mm_access_with_def_attr(RemotePort *rp, uint32_t rp_dev,
         break;
     }
 
-    if (!tr->rw) {
+    if (!isWrite) {
         data = rp_busaccess_rx_dataptr(peer, &rsp->pkt->busaccess_ext_base);
         /* Data up to 8 bytes is return as values.  */
-        if (tr->size <= 8) {
-            for (i = 0; i < tr->size; i++) {
-                tr->data.u64 |= data[i] << (i * 8);
+        if (size <= 8) {
+            for (i = 0; i < size; i++) {
+                *ioData |= data[i] << (i * 8);
             }
         } else {
-            memcpy(tr->data.p8, data, tr->size);
+            memcpy(ioData, data, size);
         }
     }
 
@@ -158,24 +161,48 @@ MemTxResult rp_mm_access_with_def_attr(RemotePort *rp, uint32_t rp_dev,
 
 MemTxResult rp_mm_access(RemotePort *rp, uint32_t rp_dev,
                          struct rp_peer_state *peer,
-                         MemoryTransaction *tr,
-                         bool relative, uint64_t offset)
+                         bool relative, uint64_t offset,
+                         hwaddr addr,
+                         uint64_t *data,
+                         unsigned size,
+                         MemTxAttrs attrs,
+                         bool isWrite)
 {
-    return rp_mm_access_with_def_attr(rp, rp_dev, peer, tr, relative, offset,
-                                      0);
+    return rp_mm_access_with_def_attr(rp, rp_dev, peer, relative, offset,
+                                      addr, data, size, attrs, isWrite, 0);
 }
 
-static MemTxResult rp_access(MemoryTransaction *tr)
+static
+MemTxResult rp_read_with_attrs(void *opaque,
+                               hwaddr addr,
+                               uint64_t *data,
+                               unsigned size,
+                               MemTxAttrs attrs)
 {
-    RemotePortMap *map = tr->opaque;
+    RemotePortMap *map = (RemotePortMap *)opaque;
     RemotePortMemoryMaster *s = map->parent;
 
-    return rp_mm_access(s->rp, s->rp_dev, s->peer, tr, s->relative,
-                        map->offset);
+    return rp_mm_access(s->rp, s->rp_dev, s->peer, s->relative,
+                        map->offset, addr, data, size, attrs, true);
+}
+
+static
+MemTxResult rp_write_with_attrs(void *opaque,
+                               hwaddr addr,
+                               uint64_t data,
+                               unsigned size,
+                               MemTxAttrs attrs)
+{
+    RemotePortMap *map = (RemotePortMap *)opaque;
+    RemotePortMemoryMaster *s = map->parent;
+
+    return rp_mm_access(s->rp, s->rp_dev, s->peer, s->relative,
+                        map->offset, addr, &data, size, attrs, false);
 }
 
 static const MemoryRegionOps rp_ops_template = {
-    .access = rp_access,
+    .read_with_attrs = rp_read_with_attrs,
+    .write_with_attrs = rp_write_with_attrs,
     .valid.max_access_size = RP_MAX_ACCESS_SIZE,
     .impl.unaligned = false,
     .endianness = DEVICE_LITTLE_ENDIAN,

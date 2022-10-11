@@ -46,12 +46,20 @@ struct RemotePortMemoryMaster {
 
 MemTxResult rp_mm_access(RemotePort *rp, uint32_t rp_dev,
                          struct rp_peer_state *peer,
-                         MemoryTransaction *tr,
-                         bool relative, uint64_t offset);
+                         bool relative, uint64_t offset,
+                         hwaddr addr,
+                         uint64_t *data,
+                         unsigned size,
+                         MemTxAttrs attrs,
+                         bool isWrite);
 
 MemTxResult rp_mm_access_with_def_attr(RemotePort *rp, uint32_t rp_dev,
                                        struct rp_peer_state *peer,
-                                       MemoryTransaction *tr,
                                        bool relative, uint64_t offset,
+                                       hwaddr addr,
+                                       uint64_t *ioData,
+                                       unsigned size,
+                                       MemTxAttrs attrs,
+                                       bool isWrite,
                                        uint32_t def_attr);
 #endif

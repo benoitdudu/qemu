@@ -60,7 +60,7 @@ specific_ss.add(when: 'CONFIG_SOFTMMU', if_true: files(
 specific_ss.add(when: 'CONFIG_REMOTE_PORT', if_true: files(
   'remote-port-proto.c',
   'remote-port.c',
-#  'remote-port-memory-master.c',
+  'remote-port-memory-master.c',
 #  'remote-port-memory-slave.c',
 #  'remote-port-gpio.c',
 #  'remote-port-stream.c',
