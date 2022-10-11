@@ -13,6 +13,7 @@
 #include "sysemu/sysemu.h"
 #include "sysemu/dma.h"
 #include "qemu/log.h"
+#include "qemu/cutils.h"
 #include "qapi/qmp/qerror.h"
 #include "qapi/error.h"
 #include "hw/qdev-core.h"
@@ -49,7 +50,7 @@ static MemTxResult process_data_slow(RemotePortMemorySlave *s,
     unsigned int i;
     unsigned int byte_en_len = pkt->busaccess_ext_base.byte_enable_len;
     unsigned int sw = pkt->busaccess.stream_width;
-    MemTxResult ret = MEMTX_OK;
+    int ret = 0;
 
     assert(sw);
 
@@ -58,10 +59,10 @@ static MemTxResult process_data_slow(RemotePortMemorySlave *s,
             continue;
         }
 
-        ret = dma_memory_rw_attr(as, pkt->busaccess.addr + i % sw,
+        ret = dma_memory_rw(as, pkt->busaccess.addr + i % sw,
                                  data + i, 1, dir, s->attr);
 
-        if (ret != MEMTX_OK) {
+        if (ret) {
             break;
         }
     }
@@ -72,16 +73,16 @@ static MemTxResult process_data_slow(RemotePortMemorySlave *s,
 static AddressSpace *get_as_for_phys_busaccess(RemotePortMemorySlave *s,
                                                struct rp_pkt *pkt)
 {
-    if (s->ats_cache) {
-        IOMMUTLBEntry *iotlb =
-            rp_ats_cache_lookup_translation(s->ats_cache,
-                                            pkt->busaccess.addr,
-                                            pkt->busaccess.len);
-        if (iotlb) {
-            /* Return the matching address space found. */
-            return iotlb->target_as;
-        }
-    }
+//    if (s->ats_cache) {
+//        IOMMUTLBEntry *iotlb =
+//            rp_ats_cache_lookup_translation(s->ats_cache,
+//                                            pkt->busaccess.addr,
+//                                            pkt->busaccess.len);
+//        if (iotlb) {
+//            /* Return the matching address space found. */
+//            return iotlb->target_as;
+//        }
+//    }
     /* Emit a warning on errors since this really should not happen. */
     warn_report("Physical address error detected (range address: 0x%"
                 HWADDR_PRIx ", len: 0x%" PRIx32 " contains untranslated "
@@ -119,8 +120,8 @@ static void rp_cmd_rw(RemotePortMemorySlave *s, struct rp_pkt *pkt,
     }
     if (dir == DMA_DIRECTION_FROM_DEVICE && REMOTE_PORT_DEBUG_LEVEL > 0) {
         DB_PRINT_L(0, "address: %" PRIx64 "\n", pkt->busaccess.addr);
-        qemu_hexdump(stderr, ": write: ",
-                     (const char *) data, pkt->busaccess.len);
+        qemu_hexdump(stderr, (const char *) data, ": write: ",
+                     pkt->busaccess.len);
     }
     trace_remote_port_memory_slave_rx_busaccess(rp_cmd_to_string(pkt->hdr.cmd),
         pkt->hdr.id, pkt->hdr.flags, pkt->hdr.dev, pkt->busaccess.addr,
@@ -138,7 +139,7 @@ static void rp_cmd_rw(RemotePortMemorySlave *s, struct rp_pkt *pkt,
         if (byte_en || pkt->busaccess.stream_width != pkt->busaccess.len) {
             ret = process_data_slow(s, as, pkt, dir, data, byte_en);
         } else {
-            ret = dma_memory_rw_attr(as, pkt->busaccess.addr, data,
+            ret = dma_memory_rw(as, pkt->busaccess.addr, data,
                                  pkt->busaccess.len, dir, s->attr);
         }
     } else {
@@ -147,8 +148,8 @@ static void rp_cmd_rw(RemotePortMemorySlave *s, struct rp_pkt *pkt,
 
     if (dir == DMA_DIRECTION_TO_DEVICE && REMOTE_PORT_DEBUG_LEVEL > 0) {
         DB_PRINT_L(0, "address: %" PRIx64 "\n", pkt->busaccess.addr);
-        qemu_hexdump(stderr, ": read: ",
-                     (const char *) data, pkt->busaccess.len);
+        qemu_hexdump(stderr, (const char *) data, ": read: ",
+                     pkt->busaccess.len);
     }
     /* delay here could be set to the annotated cost of doing issuing
        these accesses. QEMU doesn't support this kind of annotations
