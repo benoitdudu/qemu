@@ -56,6 +56,12 @@ specific_ss.add(when: 'CONFIG_SOFTMMU', if_true: files(
   'numa.c',
 ))
 
+softmmu_ss.add(files(
+  'fdt_generic.c',
+  'fdt_generic_devices.c',
+  'fdt_generic_util.c',
+  'fdt_generic_user_creatable.c',
+  ))
 
 specific_ss.add(when: 'CONFIG_REMOTE_PORT', if_true: files(
   'remote-port-proto.c',
