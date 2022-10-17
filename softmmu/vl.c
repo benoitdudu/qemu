@@ -182,6 +182,7 @@ static const char *log_file;
 static bool list_data_dirs;
 static const char *qtest_chrdev;
 static const char *qtest_log;
+uint64_t global_sync_quantum = 0;
 const char *machine_path = NULL;
 
 static int has_defaults = 1;
@@ -2891,6 +2892,12 @@ void qemu_init(int argc, char **argv)
                 break;
             case QEMU_OPTION_mem_prealloc:
                 mem_prealloc = 1;
+                break;
+            case QEMU_OPTION_sync_quantum:
+                global_sync_quantum = strtoull(optarg, (char **) &optarg, 10);
+                break;
+            case QEMU_OPTION_machine_path:
+                machine_path = optarg;
                 break;
             case QEMU_OPTION_d:
                 log_mask = optarg;
