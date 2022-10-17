@@ -205,4 +205,47 @@ int qemu_fdt_setprop_sized_cells_from_array(void *fdt,
 #define FDT_PCI_RANGE_IOPORT               0x01000000
 #define FDT_PCI_RANGE_CONFIG               0x00000000
 
+typedef struct QEMUDevtreeProp {
+    char *name;
+    int len;
+    void *value;
+} QEMUDevtreeProp;
+
+void *qemu_fdt_getprop2(void *fdt, const char *node_path,
+                             const char *property, int *lenp,
+                             bool inherit, Error **errp);
+uint32_t qemu_fdt_getprop_cell2(void *fdt, const char *node_path,
+                               const char *property, int offset,
+                               bool inherit, Error **errp);
+
+char *qemu_devtree_get_node_name(void *fdt, const char *node_path);
+int qemu_devtree_get_node_depth(void *fdt, const char *node_path);
+int qemu_devtree_get_num_children(void *fdt, const char *node_path, int depth);
+char **qemu_devtree_get_children(void *fdt, const char *node_path, int depth);
+int qemu_devtree_num_props(void *fdt, const char *node_path);
+QEMUDevtreeProp *qemu_devtree_get_props(void *fdt, const char *node_path);
+QEMUDevtreeProp *qemu_devtree_prop_search(QEMUDevtreeProp *props,
+                                          const char *name);
+
+/* node getters */
+
+int qemu_devtree_node_by_compatible(void *fdt, char *node_path,
+                        const char *compats);
+int qemu_devtree_get_node_by_name(void *fdt, char *node_path,
+                        const char *cmpname);
+int qemu_devtree_get_node_by_phandle(void *fdt, char *node_path, int phandle);
+int qemu_devtree_getparent(void *fdt, char *node_path,
+                        const char *current);
+int qemu_devtree_get_root_node(void *fdt, char *node_path);
+
+char *qemu_fdt_getprop_string(void *fdt, const char*node_path,
+                              const char *property, int cell,
+                              bool inherit, Error **errp);
+
+uint64_t qemu_fdt_getprop_sized_cell(void *fdt, const char *node_path,
+                                     const char *property, int offset,
+                                     int size, Error **errp);
+
+#define DT_PATH_LENGTH 1024
+
 #endif /* DEVICE_TREE_H */

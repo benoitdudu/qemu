@@ -32,6 +32,7 @@
 #include "qemu/log.h"
 #include "hw/cpu/cluster.h"
 #include "sysemu/reset.h"
+#include <libfdt.h>
 
 #ifndef FDT_GENERIC_ERR_DEBUG
 #define FDT_GENERIC_ERR_DEBUG 0
@@ -51,6 +52,8 @@ typedef struct TableListNode {
     FDTInitFn fdt_init;
     void *opaque;
 } TableListNode;
+
+static int devtree_get_num_nodes(void *fdt);
 
 /* add a node to the table specified by *head_p */
 
@@ -248,4 +251,66 @@ void fdt_init_destroy_fdti(FDTMachineInfo *fdti)
     }
     g_free(fdti->dev_opaques);
     g_free(fdti);
+}
+
+static void devtree_scan(void *fdt, int *num_nodes, int info_dump)
+{
+    int depth = 0, offset = 0;
+
+    if (num_nodes) {
+        *num_nodes = 0;
+    }
+    for (;;) {
+        offset = fdt_next_node(fdt, offset, &depth);
+        if (num_nodes) {
+            (*num_nodes)++;
+        }
+        if (offset <= 0 || depth <= 0) {
+            break;
+        }
+
+        if (info_dump) {
+            char node_path[DT_PATH_LENGTH];
+            char *all_compats = NULL;
+            int compat_len;
+            Error *errp = NULL;
+
+            if (fdt_get_path(fdt, offset, node_path, DT_PATH_LENGTH)) {
+                sprintf(node_path, "(none)");
+            } else {
+                all_compats = qemu_fdt_getprop2(fdt, node_path, "compatible",
+                                               &compat_len, false, &errp);
+            }
+            if (!errp) {
+                char *i = all_compats;
+                for (;;) {
+                    char *j = memchr(i, '\0', DT_PATH_LENGTH);
+                    compat_len -= ((j+1)-i);
+                    if (!compat_len) {
+                        break;
+                    }
+                    *j = ' ';
+                    i = j+1;
+                }
+            }
+            printf("OFFSET: %d, DEPTH: %d, PATH: %s, COMPATS: %s\n",
+                    offset, depth, node_path,
+                    all_compats ? all_compats : "(none)");
+        }
+    }
+}
+
+static
+int devtree_get_num_nodes(void *fdt)
+{
+    int ret;
+
+    devtree_scan(fdt, &ret, 0);
+    return ret;
+}
+
+char *qemu_devtree_get_node_name(void *fdt, const char *node_path)
+{
+    const char *ret = fdt_get_name(fdt, fdt_path_offset(fdt, node_path), NULL);
+    return ret ? strdup(ret) : NULL;
 }

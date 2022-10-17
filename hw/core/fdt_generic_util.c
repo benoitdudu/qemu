@@ -44,7 +44,7 @@
 #include "qemu/config-file.h"
 #include "block/block.h"
 #include "hw/ssi/ssi.h"
-#include "hw/block/m24cxx.h"
+//#include "hw/block/m24cxx.h"
 #include "hw/boards.h"
 #include "qemu/option.h"
 #include "hw/qdev-properties.h"
@@ -267,7 +267,7 @@ static void fdt_init_node(void *args)
     }
 
     /* fallback to compatibility binding */
-    all_compats = qemu_fdt_getprop(fdti->fdt, node_path, "compatible",
+    all_compats = qemu_fdt_getprop2(fdti->fdt, node_path, "compatible",
                                    &compat_len, false, NULL);
     if (all_compats) {
         char *compat = all_compats;
@@ -300,7 +300,7 @@ static void fdt_init_node(void *args)
      * Not every device tree node has compatible  property, so
      * try with device_type.
      */
-    device_type = qemu_fdt_getprop(fdti->fdt, node_path,
+    device_type = qemu_fdt_getprop2(fdti->fdt, node_path,
                                    "device_type", NULL, false, NULL);
     if (device_type) {
         if (check_compat("device_type:", device_type, node_path, fdti)) {
@@ -373,7 +373,7 @@ static qemu_irq fdt_get_gpio(FDTMachineInfo *fdti, char *node_path,
 
     cells[0] = 0;
 
-    parent_phandle = qemu_fdt_getprop_cell(fdt, node_path, propname,
+    parent_phandle = qemu_fdt_getprop_cell2(fdt, node_path, propname,
                                            (*cur_cell)++, false, &errp);
     if (errp) {
         reason = g_strdup_printf("Cant get phandle from \"%s\" property\n",
@@ -388,7 +388,7 @@ static qemu_irq fdt_get_gpio(FDTMachineInfo *fdti, char *node_path,
         reason = "cant get node from phandle\n";
         goto fail;
     }
-    parent_cells = qemu_fdt_getprop_cell(fdt, parent_node_path,
+    parent_cells = qemu_fdt_getprop_cell2(fdt, parent_node_path,
                                          cells_propname, 0, false, &errp);
     if (errp) {
         *end = true;
@@ -400,7 +400,7 @@ static qemu_irq fdt_get_gpio(FDTMachineInfo *fdti, char *node_path,
     }
 
     for (i = 0; i < parent_cells; ++i) {
-        cells[i] = qemu_fdt_getprop_cell(fdt, node_path, propname,
+        cells[i] = qemu_fdt_getprop_cell2(fdt, node_path, propname,
                                          (*cur_cell)++, false, &errp);
         if (errp) {
             *end = true;
@@ -575,11 +575,11 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
     int i;
     Error *errp = NULL;
 
-    intc_phandle = qemu_fdt_getprop_cell(fdt, node_path, "interrupt-parent",
+    intc_phandle = qemu_fdt_getprop_cell2(fdt, node_path, "interrupt-parent",
                                          0, true, &errp);
     if (errp) {
         errp = NULL;
-        intc_cells = qemu_fdt_getprop_cell(fdt, node_path,
+        intc_cells = qemu_fdt_getprop_cell2(fdt, node_path,
                                            "#interrupt-cells", 0, true, &errp);
         *map_mode = true;
     } else {
@@ -589,17 +589,17 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
         }
 
         /* Check if the device is using interrupt-maps */
-        qemu_fdt_getprop_cell(fdt, node_path, "interrupt-map-mask", 0,
+        qemu_fdt_getprop_cell2(fdt, node_path, "interrupt-map-mask", 0,
                               false, &errp);
         if (!errp) {
             errp = NULL;
-            intc_cells = qemu_fdt_getprop_cell(fdt, node_path,
+            intc_cells = qemu_fdt_getprop_cell2(fdt, node_path,
                                                "#interrupt-cells", 0,
                                                true, &errp);
             *map_mode = true;
         } else {
             errp = NULL;
-            intc_cells = qemu_fdt_getprop_cell(fdt, intc_node_path,
+            intc_cells = qemu_fdt_getprop_cell2(fdt, intc_node_path,
                                                "#interrupt-cells", 0,
                                                true, &errp);
             *map_mode = false;
@@ -613,7 +613,7 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
     DB_PRINT_NP(2, "%s intc_phandle: %d\n", node_path, intc_phandle);
 
     for (i = 0; i < intc_cells; ++i) {
-        cells[i] = qemu_fdt_getprop_cell(fdt, node_path, "interrupts",
+        cells[i] = qemu_fdt_getprop_cell2(fdt, node_path, "interrupts",
                                          intc_cells * irq_idx + i, false, &errp);
         if (errp) {
             goto fail;
@@ -631,7 +631,7 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
         bool use_parent = false;
 
         for (k = 0; k < intc_cells; ++k) {
-            imap_mask[k] = qemu_fdt_getprop_cell(fdt, node_path,
+            imap_mask[k] = qemu_fdt_getprop_cell2(fdt, node_path,
                                                  "interrupt-map-mask", k + 2,
                                                  true, &errp);
             if (errp) {
@@ -640,8 +640,8 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
         }
 
         /* Check if the device has an interrupt-map property */
-        imap = qemu_fdt_getprop(fdt, node_path, "interrupt-map", &len,
-                                  use_parent, &errp);
+        imap = qemu_fdt_getprop2(fdt, node_path, "interrupt-map", &len,
+                                use_parent, &errp);
 
         if (!imap || errp) {
             /* If the device doesn't have an interrupt-map, try again with
@@ -650,7 +650,7 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
             use_parent = true;
             errp = NULL;
 
-            imap_p = qemu_fdt_getprop(fdt, node_path, "interrupt-map",
+            imap_p = qemu_fdt_getprop2(fdt, node_path, "interrupt-map",
                                       &len, use_parent, &errp);
             if (!imap_cached) {
                 memcpy(imap_cache, imap_p, len);
@@ -672,7 +672,7 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
                 /* Only re-sync the interrupt-map when the device has it's
                  * own map, to save time.
                  */
-                imap = qemu_fdt_getprop(fdt, node_path, "interrupt-map", &len,
+                imap = qemu_fdt_getprop2(fdt, node_path, "interrupt-map", &len,
                                           use_parent, &errp);
 
                 if (errp) {
@@ -703,7 +703,7 @@ qemu_irq *fdt_get_irq_info(FDTMachineInfo *fdti, char *node_path, int irq_idx,
                                                      intc_phandle)) {
                     goto fail;
                 }
-                new_intc_cells = qemu_fdt_getprop_cell(fdt, intc_node_path,
+                new_intc_cells = qemu_fdt_getprop_cell2(fdt, intc_node_path,
                                                        "#interrupt-cells", 0,
                                                        false, &errp);
                 imap[i - 1] = cpu_to_be32(intc_phandle |
@@ -849,7 +849,7 @@ static bool fdt_attach_blockdev(FDTMachineInfo *fdti,
     char *label;
 
     /* Inspect FDT node for blockdev-only binding */
-    label = qemu_fdt_getprop(fdti->fdt, node_path, propname,
+    label = qemu_fdt_getprop2(fdti->fdt, node_path, propname,
                              NULL, false, NULL);
 
     /* Skip legacy node */
@@ -918,7 +918,7 @@ static void fdt_attach_drive(FDTMachineInfo *fdti, char *node_path,
      * Try legacy with explicit 'drive-index' binding, or next-unit
      * as fallback binding.
      */
-    di_val = qemu_fdt_getprop(fdti->fdt, node_path, "drive-index",
+    di_val = qemu_fdt_getprop2(fdti->fdt, node_path, "drive-index",
                               &di_len, false, NULL);
 
     if (di_val && (di_len == sizeof(*di_val))) {
@@ -1027,10 +1027,10 @@ static void fdt_dev_error(FDTMachineInfo *fdti, char *node_path, char *compat)
     char *abort_on_error;
     char *warn_on_error;
 
-    warn_on_error = qemu_fdt_getprop(fdti->fdt, node_path,
+    warn_on_error = qemu_fdt_getprop2(fdti->fdt, node_path,
                                    "qemu-fdt-warn-on-error", 0,
                                    true, NULL);
-    abort_on_error = qemu_fdt_getprop(fdti->fdt, node_path,
+    abort_on_error = qemu_fdt_getprop2(fdti->fdt, node_path,
                                    "qemu-fdt-abort-on-error", 0,
                                    true, NULL);
     if (warn_on_error) {
@@ -1357,7 +1357,7 @@ static int fdt_init_qdev(char *node_path, FDTMachineInfo *fdti, char *compat)
             DeviceState *adaptor;
             char *name;
 
-            adaptor_phandle = qemu_fdt_getprop_cell(fdti->fdt, node_path,
+            adaptor_phandle = qemu_fdt_getprop_cell2(fdti->fdt, node_path,
                                                     "remote-ports",
                                                     2 * i, false, &errp);
             if (errp) {
@@ -1384,7 +1384,7 @@ static int fdt_init_qdev(char *node_path, FDTMachineInfo *fdti, char *compat)
                 break;
             }
 
-            chan = qemu_fdt_getprop_cell(fdti->fdt, node_path, "remote-ports",
+            chan = qemu_fdt_getprop_cell2(fdti->fdt, node_path, "remote-ports",
                                          2 * i + 1, false, &errp);
             if (errp) {
                 DB_PRINT_NP(1, "cant get channel from \"remote-ports\" "
@@ -1456,7 +1456,7 @@ static int fdt_init_qdev(char *node_path, FDTMachineInfo *fdti, char *compat)
          */
         if (object_property_find(OBJECT(dev), "drive")) {
             uint32_t *use_blkdev = NULL;
-            use_blkdev =  qemu_fdt_getprop(fdti->fdt, node_path,
+            use_blkdev =  qemu_fdt_getprop2(fdti->fdt, node_path,
                                              "use-blockdev", NULL,
                                              false, NULL);
             if (use_blkdev && *use_blkdev) {
@@ -1474,13 +1474,13 @@ static int fdt_init_qdev(char *node_path, FDTMachineInfo *fdti, char *compat)
                  * compatible with older dtb's. If we want to fallback to old
                  * usage of drive index, set prop use-blockdev = <0>.
                  */
-                if (object_dynamic_cast(dev, TYPE_M24CXX)) {
-                    if (use_blkdev && !(*use_blkdev)) {
-                        fdt_attach_drive(fdti, node_path, dev, IF_MTD);
-                    } else {
-                        fdt_attach_blockdev_noname(fdti, node_path, dev);
-                    }
-                }
+                //if (object_dynamic_cast(dev, TYPE_M24CXX)) {
+                //    if (use_blkdev && !(*use_blkdev)) {
+                //        fdt_attach_drive(fdti, node_path, dev, IF_MTD);
+                //    } else {
+                //        fdt_attach_blockdev_noname(fdti, node_path, dev);
+                //    }
+                //}
             }
             g_free(use_blkdev);
         }
@@ -1499,7 +1499,7 @@ static int fdt_init_qdev(char *node_path, FDTMachineInfo *fdti, char *compat)
         int cell_idx = 0;
         bool extended = true;
 
-        qemu_fdt_getprop_cell(fdti->fdt, node_path, "reg-extended", 0, false,
+        qemu_fdt_getprop_cell2(fdti->fdt, node_path, "reg-extended", 0, false,
                               &errp);
         if (errp) {
             error_free(errp);
@@ -1516,7 +1516,7 @@ static int fdt_init_qdev(char *node_path, FDTMachineInfo *fdti, char *compat)
             reg.parents[reg.n] = parent;
 
             if (extended) {
-                int p_ph = qemu_fdt_getprop_cell(fdti->fdt, node_path,
+                int p_ph = qemu_fdt_getprop_cell2(fdti->fdt, node_path,
                                                  "reg-extended", cell_idx++,
                                                  false, &errp);
                 if (errp) {
@@ -1537,7 +1537,7 @@ static int fdt_init_qdev(char *node_path, FDTMachineInfo *fdti, char *compat)
 
             for (i = 0; i < FDT_GENERIC_REG_TUPLE_LENGTH; ++i) {
                 const char *size_prop_name = fdt_generic_reg_size_prop_names[i];
-                int nc = qemu_fdt_getprop_cell(fdti->fdt, pnp, size_prop_name,
+                int nc = qemu_fdt_getprop_cell2(fdti->fdt, pnp, size_prop_name,
                                                0, true, &errp);
 
                 if (errp) {
