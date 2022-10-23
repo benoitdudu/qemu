@@ -183,7 +183,7 @@ MemTxResult rp_read_with_attrs(void *opaque,
     RemotePortMemoryMaster *s = map->parent;
 
     return rp_mm_access(s->rp, s->rp_dev, s->peer, s->relative,
-                        map->offset, addr, data, size, attrs, true);
+                        map->offset, addr, data, size, attrs, false);
 }
 
 static
@@ -197,7 +197,7 @@ MemTxResult rp_write_with_attrs(void *opaque,
     RemotePortMemoryMaster *s = map->parent;
 
     return rp_mm_access(s->rp, s->rp_dev, s->peer, s->relative,
-                        map->offset, addr, &data, size, attrs, false);
+                        map->offset, addr, &data, size, attrs, true);
 }
 
 static const MemoryRegionOps rp_ops_template = {
